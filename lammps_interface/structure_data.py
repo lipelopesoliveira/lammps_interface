@@ -508,7 +508,7 @@ class MolecularGraph(nx.Graph):
             except KeyError:
                 coordinates = np.array([float(del_parenth(data[i])) for i in fcoord_keys])
                 coordinates = np.dot(coordinates, cell.cell)
-            data.update({'cartesian_coordinates':coordinates})
+            data.update({'cartesian_coordinates': coordinates})
 
             self.coordinates[data['index'] - 1] = coordinates
 
@@ -1008,7 +1008,7 @@ class MolecularGraph(nx.Graph):
         print("func: {}; Elps. {:.3f}s".format("init_typing", clock() - t0))
 
         # If the bond types area available in the cif file, use them.
-        if not self.bond_types_from_cif:
+        if self.bond_types_from_cif is False:
             self.compute_bond_typing()
             print("func: {}; Elps. {:.3f}s".format("bond_typing", clock() - t0))
 
@@ -1584,21 +1584,43 @@ def del_parenth(string):
     return re.sub(r'\([^)]*\)', '' , string)
 
 
-def ase_from_CIF(cifname, **kwargs):
+def ase_from_CIF(cifname, check_distances=True):
     '''
     Try to read the cif file using the ase environment. They have considerations for space groups.
     We don't.
 
+    ASE looses the information of partial charges, custom atom labels and bond types.
+    This may be a problem, since we need to know the bond types to build the force field.
     '''
     from ase.io import read
     ase_cif = read(cifname)
+    print(len(ase_cif))
+
     mg = MolecularGraph(
             name=clean(cifname),
-            bond_types_from_cif=kwargs.get('bond_types_from_cif', False),
-            check_distances=kwargs.get('check_distances', True)
+            check_distances=check_distances
         )
+
     for atom in ase_cif:
-        print(atom)
+        kwargs = {
+            '_atom_site_label': atom.symbol + str(atom.index),
+            '_atom_site_type_symbol': atom.symbol,
+            '_atom_site_fract_x': str(atom.scaled_position[0]),
+            '_atom_site_fract_y': str(atom.scaled_position[1]),
+            '_atom_site_fract_z': str(atom.scaled_position[2]),
+            '_atom_site_x': str(atom.position[0]),
+            '_atom_site_y': str(atom.position[1]),
+            '_atom_site_z': str(atom.position[2]),
+        }
+        mg.add_atomic_node(**kwargs)
+
+    mg.store_original_size()
+
+    cell = Cell()
+    cell.set_params(ase_cif.cell.cellpar())
+    mg.cell = cell
+    print("totatomlen =", len(mg._node))
+    return cell, mg
 
 
 def from_CIF(cifname, bond_types_from_cif=False, check_distances=True):
@@ -1649,7 +1671,9 @@ def from_CIF(cifname, bond_types_from_cif=False, check_distances=True):
 
     for atom_data in zip(*[data[i] for i in atheads]):
         kwargs = {a: j.strip() for a, j in zip(atheads, atom_data)}
+
         mg.add_atomic_node(**kwargs)
+
     # add bond edges, if they exist
     try:
         id = cifobj.block_order.index('bonds')
@@ -1658,7 +1682,7 @@ def from_CIF(cifname, bond_types_from_cif=False, check_distances=True):
             kwargs = {a: j.strip() for a, j in zip(bondheads, bond_data)}
             mg.add_bond_edge(**kwargs)
 
-    except Exception as e:
+    except:
         # catch no bonds
         print("No bonds reported in cif file - computing bonding..")
         mg.bond_types_from_cif = False
