@@ -1661,7 +1661,7 @@ def from_CIF(cifname, **kwargs):
     except Exception as e:
         # catch no bonds
         print("No bonds reported in cif file - computing bonding..")
-        print(e)
+        mg.bond_types_from_cif = False
 
     mg.store_original_size()
     mg.cell = cell
