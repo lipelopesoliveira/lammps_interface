@@ -436,8 +436,13 @@ class LammpsSimulation(object):
 
     def assign_force_fields(self):
 
-        attr = {'graph':self.graph, 'cutoff':self.options.cutoff, 'h_bonding':self.options.h_bonding,
-                'keep_metal_geometry':self.options.fix_metal, 'bondtype':self.options.dreid_bond_type}
+        attr = {
+            'graph': self.graph,
+            'cutoff': self.options.cutoff,
+            'h_bonding': self.options.h_bonding,
+            'keep_metal_geometry': self.options.fix_metal,
+            'bondtype': self.options.dreid_bond_type}
+
         param = getattr(ForceFields, self.options.force_field)(**attr)
 
         self.special_commands += param.special_commands()
@@ -517,11 +522,12 @@ class LammpsSimulation(object):
                     print("Use <ixjxk> format")
                     print("Exiting...")
                     sys.exit()
-        self.supercell=supercell
+
+        self.supercell = supercell
         if np.any(np.array(supercell) > 1):
             print("Re-sizing to a %i x %i x %i supercell. "%(supercell))
 
-            #TODO(pboyd): apply to subgraphs as well, if requested.
+            # TO DO (pboyd): apply to subgraphs as well, if requested.
             self.graph.build_supercell(supercell, self.cell)
             molcount = 0
             if self.subgraphs:
@@ -1195,9 +1201,12 @@ class LammpsSimulation(object):
             inp_str += "%-15s %s\n"%("jump", "SELF loop_min")
             inp_str += "%-15s %s\n"%("label", "break_min")
 
-           # inp_str += "%-15s %s\n"%("unfix", "output")
+            # Write the final relaxed structure to a file
+            inp_str += "%-15s %s\n"%("write_data", "data.optimized")
+
+            # inp_str += "%-15s %s\n"%("unfix", "output")
         # delete bond types etc, for molecules that are rigid
-        
+
         if (self.options.thermal_anneal):
             box_min = "aniso"
             min_style = "cg"
@@ -1266,6 +1275,9 @@ class LammpsSimulation(object):
                                      " ".join([self.unique_atom_types[key][1]['element']
                                                 for key in sorted(self.unique_atom_types.keys())])))
             inp_str += "run 0\n"
+
+            # Write the final relaxed structure to a file
+            inp_str += "%-15s %s\n"%("write_data", "data.optimized")
 
         for mol in sorted(self.molecule_types.keys()):
             rep = self.subgraphs[self.molecule_types[mol][0]]
