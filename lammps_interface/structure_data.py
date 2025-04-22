@@ -512,7 +512,7 @@ class MolecularGraph(nx.Graph):
 
             self.coordinates[data['index'] - 1] = coordinates
 
-    def compute_min_img_distances(self, cell, check_distances: bool = True):
+    def compute_min_img_distances(self, cell):
         self.distance_matrix = np.empty((self.number_of_nodes(), self.number_of_nodes()))
 
         tmp_one = np.empty((self.number_of_nodes(), 3))
@@ -532,7 +532,7 @@ class MolecularGraph(nx.Graph):
             dist = np.linalg.norm(four0)
 
             #    # perform a distance check here and break with error.
-            if dist < 0.1 and check_distances:
+            if dist < 0.1 and self.check_distances:
                 print(
                     f"ERROR: distance between atom {n1} and {n2} are less than 0.1 Angstrom in the unit cell!",
                     "Please check your input file for overlapping atoms.")
@@ -1601,7 +1601,7 @@ def ase_from_CIF(cifname, **kwargs):
         print(atom)
 
 
-def from_CIF(cifname, **kwargs):
+def from_CIF(cifname, bond_types_from_cif=False, check_distances=True):
     """Reads the structure data from the CIF
     - currently does not read the symmetry of the cell
     - does not unpack the assymetric unit (assumes P1)
@@ -1628,8 +1628,8 @@ def from_CIF(cifname, **kwargs):
     # add data to molecular graph (to be parsed later..)
     mg = MolecularGraph(
         name=clean(cifname),
-        bond_types_from_cif=kwargs.get('bond_types_from_cif', False),
-        check_distances=kwargs.get('check_distances', True),
+        bond_types_from_cif=bond_types_from_cif,
+        check_distances=check_distances,
     )
 
     cellparams = [float(del_parenth(i)) for i in [
