@@ -83,7 +83,7 @@ class MolecularGraph(nx.Graph):
         self.rigid = False
 
         self.bond_types_from_cif = kwargs.get('bond_types_from_cif', False)
-        self.check_distences = kwargs.get('check_distances', True)
+        self.check_distances = kwargs.get('check_distances', True)
 
         # TODO(pboyd): networkx edges do not store the nodes in order!
         # Have to keep a dictionary lookup to make sure the nodes
