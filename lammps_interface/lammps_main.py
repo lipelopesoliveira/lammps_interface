@@ -1161,54 +1161,68 @@ class LammpsSimulation(object):
             f.close()
 
         if (self.options.minimize):
-            box_min = "aniso"
+            # This part has been heavily modified by Felipe Lopes de Oliveira (FLO)
+            box_min = "tri"
             min_style = "cg"
-            min_eval = 1e-6   # HKUST-1 will not minimize past 1e-11
-            max_iterations = 100000 # if the minimizer can't reach a minimum in this many steps,
-                                    # change the min_eval to something higher.
-            #inp_str += "%-15s %s\n"%("min_style","fire")
-            #inp_str += "%-15s %i %s\n"%("compute", 1, "all msd com yes")
-            #inp_str += "%-15s %-10s %s\n"%("variable", "Dx", "equal c_1[1]")
-            #inp_str += "%-15s %-10s %s\n"%("variable", "Dy", "equal c_1[2]")
-            #inp_str += "%-15s %-10s %s\n"%("variable", "Dz", "equal c_1[3]")
-            #inp_str += "%-15s %-10s %s\n"%("variable", "MSD", "equal c_1[4]")
-            #inp_str += "%-15s %s %s\n"%("fix", "output all print 1", "\"$(vol),$(cella),$(cellb),$(cellc),${Dx},${Dy},${Dz},${MSD}\"" +
-            #                                " file %s.min.csv title \"Vol,CellA,CellB,CellC,Dx,Dy,Dz,MSD\" screen no"%(self.name))
-            inp_str += "%-15s %s\n"%("min_style", min_style)
-            inp_str += "%-15s %s\n"%("print", "\"MinStep,CellMinStep,AtomMinStep,FinalStep,Energy,EDiff\"" +
-                                              " file %s.min.csv screen no"%(self.name))
+            min_eval = self.options.min_eval   # HKUST-1 will not minimize past 1e-11
+            max_iterations = 100000  # if the minimizer can't reach a minimum in this many steps, change the min_eval to something higher.
+
+            inp_str += "#### Start of optimization ####\n\n"
+            inp_str += "%-15s %-10s %s\n"%("variable", "natoms", "equal count(all)")
+
+            inp_str += "%-15s %s\n"%("print", "\"Iter,PeTotal,DiffPe,PePerAtom,DiffPerAtom,Vol,F_max,F_Norm\"" +
+                                              " file %s.min.csv screen no\n"%(self.name))
+            
+            inp_str += "# Loop Initiation\n\n"
+
             inp_str += "%-15s %-10s %s\n"%("variable", "min_eval", "equal %.2e"%(min_eval))
             inp_str += "%-15s %-10s %s\n"%("variable", "prev_E", "equal %.2f"%(50000.)) # set unreasonably high for first loop
+            inp_str += "%-15s %-10s %s\n"%("variable", "prev_E_atom", "equal %.2f"%(50000.)) # set unreasonably high for first loop
             inp_str += "%-15s %-10s %s\n"%("variable", "iter", "loop %i"%(max_iterations))
+
+            inp_str += "%-15s %-10s %s\n"%("variable", "F_max_comp", "equal fmax")
+            inp_str += "%-15s %-10s %s\n"%("variable", "F_norm_max", "equal fnorm")
+
             inp_str += "%-15s %s\n"%("label", "loop_min")
 
             fix = self.fixcount()
-            inp_str += "%-15s %s\n"%("min_style", min_style)
-            inp_str += "%-15s %s\n"%("fix","%i all box/relax %s 0.0 vmax 0.01"%(fix, box_min))
-            inp_str += "%-15s %s\n"%("minimize","1.0e-15 1.0e-15 10000 100000")
-            inp_str += "%-15s %s\n"%("unfix", "%i"%fix)
-            inp_str += "%-15s %s\n"%("min_style", "fire")
-            inp_str += "%-15s %-10s %s\n"%("variable", "tempstp", "equal $(step)")
-            inp_str += "%-15s %-10s %s\n"%("variable", "CellMinStep", "equal ${tempstp}")
-            inp_str += "%-15s %s\n"%("minimize","1.0e-15 1.0e-15 10000 100000")
-            inp_str += "%-15s %-10s %s\n"%("variable", "AtomMinStep", "equal $(step)")
-            inp_str += "%-15s %-10s %s\n"%("variable", "temppe", "equal $(pe)")
-            inp_str += "%-15s %-10s %s\n"%("variable", "min_E", "equal abs(${prev_E}-${temppe})")
-            inp_str += "%-15s %s\n"%("print", "\"${iter},${CellMinStep},${AtomMinStep},${AtomMinStep}," +
-                                              "$(pe),${min_E}\"" +
+
+            inp_str += "\n    # --- Stage 1: Box Relaxation ---\n"
+
+            inp_str += "    %-15s %s\n"%("min_style", min_style)
+            inp_str += "    %-15s %s\n"%("fix","%i all box/relax %s 0.0 vmax 0.01"%(fix, box_min))
+            inp_str += "    %-15s %s\n"%("minimize","1.0e-8 1.0e-8 5000 10000")
+            inp_str += "    %-15s %s\n"%("unfix", "%i"%fix)
+
+            inp_str += "\n    # --- Stage 2: Atom Relaxation ---\n"
+            inp_str += "    %-15s %s\n"%("min_style", "fire")
+            inp_str += "    %-15s %-10s %s\n"%("variable", "tempstp", "equal $(step)")
+            inp_str += "    %-15s %-10s %s\n"%("variable", "CellMinStep", "equal ${tempstp}")
+            inp_str += "    %-15s %s\n"%("minimize","1.0e-10 1.0e-10 10000 20000")
+
+            inp_str += "\n    # --- Convergence Check (Per Atom) ---\n"
+            inp_str += "    %-15s %-10s %s\n"%("variable", "curr_pe", "equal pe")
+            inp_str += "    %-15s %-10s %s\n"%("variable", "curr_pe_atom", "equal v_curr_pe / v_natoms")
+            inp_str += "    %-15s %-10s %s\n"%("variable", "vol", "equal vol")
+            inp_str += "    %-15s %-10s %s\n"%("variable", "diff_total", "equal abs(${prev_E}-${curr_pe})")
+            inp_str += "    %-15s %-10s %s\n"%("variable", "diff_atom", "equal abs(${prev_E_atom}-${curr_pe_atom})")
+
+            inp_str += "    %-15s %s\n\n"%("print", "\"${iter},${curr_pe},${diff_total},${curr_pe_atom},${diff_atom},${vol},${F_max_comp},${F_norm_max}\"" +
                                               " append %s.min.csv screen no"%(self.name))
 
-            inp_str += "%-15s %s\n"%("if","\"${min_E} < ${min_eval}\" then \"jump SELF break_min\"")
-            inp_str += "%-15s %-10s %s\n"%("variable", "prev_E", "equal ${temppe}")
-            inp_str += "%-15s %s\n"%("next", "iter")
+            inp_str += "    %-15s %-10s %s\n"%("variable", "prev_E", "equal ${curr_pe}")
+            inp_str += "    %-15s %-10s %s\n\n"%("variable", "prev_E_atom", "equal ${curr_pe_atom}")
+
+            inp_str += "    %-15s %s\n"%("if","\"${diff_atom} < ${min_eval}\" then \"jump SELF break_min\"")
+            
+            inp_str += "    %-15s %s\n"%("next", "iter")
             inp_str += "%-15s %s\n"%("jump", "SELF loop_min")
             inp_str += "%-15s %s\n"%("label", "break_min")
+            inp_str += "\n#### End of optimization ####\n\n"
 
             # Write the final relaxed structure to a file
             inp_str += "%-15s %s\n"%("write_data", "data.optimized")
 
-            # inp_str += "%-15s %s\n"%("unfix", "output")
-        # delete bond types etc, for molecules that are rigid
 
         if (self.options.thermal_anneal):
             box_min = "aniso"
@@ -1255,32 +1269,6 @@ class LammpsSimulation(object):
                                      " ".join([self.unique_atom_types[key][1]['element']
                                                 for key in sorted(self.unique_atom_types.keys())])))
             inp_str += "run 0\n"
-
-        if (self.options.relax):
-            box_min = "aniso"
-            min_style = "cg"
-            inp_str += "run 0\n"
-            inp_str += "%-15s %-10s %s\n"%("variable", "inputpe", "equal $(pe)")
-            inp_str += "%-15s %s\n"%("min_style", min_style)
-            fix = self.fixcount()
-            inp_str += "%-15s %-10s %s\n"%("variable", "tempstp", "equal $(step)")
-            inp_str += "%-15s %s\n"%("minimize","1.0e-15 1.0e-15 10000 100000")
-            inp_str += "%-15s %-10s %s\n"%("variable", "AtomMinStep", "equal $(step)")
-            inp_str += "%-15s %-10s %s\n"%("variable", "relaxedpe", "equal $(pe)")
-            inp_str += "%-15s %-10s %s\n"%("variable", "min_E", "equal abs(${inputpe}-${relaxedpe})")
-            inp_str += "%-15s %s\n"%("print", "\"${AtomMinStep}," +
-                                              "$(pe),${min_E}\"" +
-                                              " append %s.min.csv screen no"%(self.name))
-            inp_str += "%-15s %s\n"%("dump","%s_relax all custom 1 relaxed_%s.lammpstrj element xs ys zs"%
-                            (self.name, self.name))
-            inp_str += "%-15s %s\n"%("dump_modify", "%s_relax element %s"%(
-                                     self.name,
-                                     " ".join([self.unique_atom_types[key][1]['element']
-                                                for key in sorted(self.unique_atom_types.keys())])))
-            inp_str += "run 0\n"
-
-            # Write the final relaxed structure to a file
-            inp_str += "%-15s %s\n"%("write_data", "data.optimized")
 
         for mol in sorted(self.molecule_types.keys()):
             rep = self.subgraphs[self.molecule_types[mol][0]]
