@@ -2499,8 +2499,12 @@ class UFF(ForceField):
                             if neigh_elem <= set(["Si", "Al"]):
                                 data['force_field_type'] = "O_3_z"
                         elif data['element'] == "S":
-                            # default sp3 hybridized sulphur set to S_3+6
-                            data['force_field_type'] = "S_3+6"
+                            if self.graph.degree(node) == 4:
+                                data['force_field_type'] = "S_3+6"
+                            elif self.graph.degree(node) == 3:
+                                data['force_field_type'] = "S_3+4"
+                            elif self.graph.degree(node) == 2:
+                                data['force_field_type'] = "S_3+2"
 
                     elif data['hybridization'] == "aromatic":
                         data['force_field_type'] = "%s_R"%data['element']
@@ -3616,6 +3620,14 @@ class UFF4MOF(ForceField):
                         data['force_field_type'] = "%s_2"%data['element']
                     elif data['hybridization'] == "sp":
                         data['force_field_type'] = "%s_1"%data['element']
+
+                    if data['element'] == "S":
+                        if self.graph.degree(node) == 4:
+                            data['force_field_type'] = "S_3+6"
+                        elif self.graph.degree(node) == 3:
+                            data['force_field_type'] = "S_3+4"
+                        elif self.graph.degree(node) == 2:
+                            data['force_field_type'] = "S_3+2"
                 if data['element'] == "O" and self.graph.degree(node) == 2:
                     if neigh_elem <= metals:
                         data['force_field_type'] = "O_2"
