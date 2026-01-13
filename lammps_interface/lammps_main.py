@@ -1146,8 +1146,10 @@ class LammpsSimulation(object):
                                      " ".join([self.unique_atom_types[key][1]['element']
                                                 for key in sorted(self.unique_atom_types.keys())])))
         elif self.options.dump_lammpstrj:
-            inp_str += "%-15s %s\n"%("dump","%s_lammpstrj all atom %i %s_mov.lammpstrj"%
-                                (self.name, self.options.dump_lammpstrj, self.name))
+            inp_str += "%-15s %s\n"%("dump","%s_lammpstrj all custom %i %s_mov.lammpstrj id element xs ys zs"% (self.name, self.options.dump_lammpstrj, self.name))
+            inp_str += "%-15s %s\n"%("dump_modify", "%s_lammpstrj sort id"% (self.name))
+            inp_str += "%-15s %s\n"%("dump_modify", "%s_lammpstrj element "% (self.name, " ".join([self.unique_atom_types[key][1]['element']
+                                                for key in sorted(self.unique_atom_types.keys())])))
 
             # in the meantime we need to map atom id to element that will allow us to
             # post-process the lammpstrj file and create a cif out of each
