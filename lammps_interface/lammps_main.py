@@ -1191,14 +1191,14 @@ class LammpsSimulation(object):
 
             inp_str += "    %-15s %s\n"%("min_style", min_style)
             inp_str += "    %-15s %s\n"%("fix","%i all box/relax %s 0.0 vmax 0.01"%(fix, box_min))
-            inp_str += "    %-15s %s\n"%("minimize","1.0e-8 1.0e-8 5000 10000")
+            inp_str += "    %-15s %s\n"%("minimize","%.2e %.2e 5000 10000"%(min_eval, min_eval))
             inp_str += "    %-15s %s\n"%("unfix", "%i"%fix)
 
             inp_str += "\n    # --- Stage 2: Atom Relaxation ---\n"
             inp_str += "    %-15s %s\n"%("min_style", "fire")
             inp_str += "    %-15s %-10s %s\n"%("variable", "tempstp", "equal $(step)")
             inp_str += "    %-15s %-10s %s\n"%("variable", "CellMinStep", "equal ${tempstp}")
-            inp_str += "    %-15s %s\n"%("minimize","1.0e-10 1.0e-10 10000 20000")
+            inp_str += "    %-15s %s\n"%("minimize","%.2e %.2e 10000 20000"%(min_eval, min_eval))
 
             inp_str += "\n    # --- Convergence Check (Per Atom) ---\n"
             inp_str += "    %-15s %-10s %s\n"%("variable", "curr_pe", "equal pe")
