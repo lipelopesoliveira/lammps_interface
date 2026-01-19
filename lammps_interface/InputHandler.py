@@ -239,6 +239,14 @@ class Options(object):
                                      help="Max deviation of adjusted variable "+
                                           "at each step is scaled by MAX_DEV/ITER_COUNT. "+
                                           "Default is 0.01 (ideal for volume).")
+        parameter_group.add_argument("--min_eval",
+                                     action="store",
+                                     type=float,
+                                     default=0.000001,
+                                     dest="min_eval",
+                                     help="Minimal change in energy per atom to consider" +
+                                          "the optimization converged." +
+                                          "Default is 1e-6 (ideal for most cases).")
         parameter_group.add_argument("--temperature",
                                      action="store",
                                      type=float,
